@@ -1,18 +1,31 @@
 import torch
+import pandas as pd
 from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
-from datasets import load_dataset
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from datasets import Dataset
 
-# Load dataset
-dataset = load_dataset("sms_spam")
-train_data = dataset['train']
-test_data = dataset['test']
+# Load dataset from CSV
+df = pd.read_csv('spam_ham_dataset.csv')
+# Clean the data - remove any NaN values and duplicate entries
+df = df.dropna()
+df = df.drop_duplicates()
+
+# Convert labels to numeric format (0 for ham, 1 for spam)
+df['label'] = (df['label'] == 'spam').astype(int)
+
+# Split the dataset
+train_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
+
+# Convert to Hugging Face datasets
+train_data = Dataset.from_pandas(train_df)
+test_data = Dataset.from_pandas(test_df)
 
 # Tokenize the dataset
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 def tokenize_function(examples):
-    return tokenizer(examples['text'], padding="max_length", truncation=True)
+    return tokenizer(examples['text'], padding="max_length", truncation=True, max_length=512)
 
 train_data = train_data.map(tokenize_function, batched=True)
 test_data = test_data.map(tokenize_function, batched=True)
